@@ -13,7 +13,7 @@ then tracked to completion per user.
 - **Embeddings**: Voyage AI (`voyage-3`, 1024-dim)
 - **Generation**: Gemini API (server-side only)
 - **Styling**: Tailwind CSS, a custom "wayfinding" design system (see `tailwind.config.ts`)
-- **Hero animation**: `@splinetool/react-spline`, lazy-loaded client-side
+
 
 ## 1. Create the Supabase project
 

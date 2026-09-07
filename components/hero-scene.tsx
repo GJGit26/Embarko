@@ -1,56 +1,71 @@
-"use client";
-
-import dynamic from "next/dynamic";
-import { useState } from "react";
-
-// @splinetool/react-spline pulls in a large runtime — load it only on the
-// client, after the rest of the hero has already painted, so it never
-// blocks first contentful paint or contributes to server render time.
-const Spline = dynamic(() => import("@splinetool/react-spline"), {
-  ssr: false,
-  loading: () => <HeroSceneFallback />,
-});
-
-function HeroSceneFallback() {
-  return (
-    <div className="flex h-full w-full items-center justify-center">
-      <div className="h-2 w-2 animate-pulse rounded-full bg-amber" />
-    </div>
-  );
-}
-
-
-// Swap this for your own Spline scene URL (exported from spline.design).
-const SCENE_URL =
-  "https://prod.spline.design/invEViyBFqcVlB2g/scene.splinecode";
-
+// A CSS/SVG "trail" animation — replaces the earlier Spline-based hero.
+// Pure vector + CSS keyframes: no WebGL, no continuous render loop, no GPU
+// cost worth mentioning, and nothing to license or watermark. Respects
+// prefers-reduced-motion via the global rule in app/globals.css.
 export function HeroScene() {
-  const [failed, setFailed] = useState(false);
-
-  if (failed) {
-    // Graceful fallback if the scene fails to load (offline, blocked, etc.)
-    // — an abstract route-line drawing keeps the hero from ever looking broken.
-    return (
-      <svg viewBox="0 0 400 400" className="h-full w-full text-amber/60" aria-hidden>
-        <path
-          d="M40 340 C 120 340, 100 220, 180 220 S 260 100, 340 60"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeDasharray="6 8"
-        />
-        <circle cx="40" cy="340" r="5" fill="currentColor" />
-        <circle cx="180" cy="220" r="5" fill="currentColor" />
-        <circle cx="340" cy="60" r="5" fill="currentColor" />
-      </svg>
-    );
-  }
-
   return (
-    <Spline
-      scene={SCENE_URL}
-      onError={() => setFailed(true)}
-      style={{ width: "100%", height: "100%", background: "transparent" }}
-    />
+    <svg
+      viewBox="0 0 500 500"
+      className="h-full w-full"
+      role="img"
+      aria-label="An illustrated trail connecting waypoints, representing a learning roadmap"
+    >
+      <defs>
+        <filter id="trail-glow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="6" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <g className="text-mist-line/70 dark:text-ink-line/70" fill="currentColor">
+        {Array.from({ length: 8 }).map((_, row) =>
+          Array.from({ length: 8 }).map((_, col) => (
+            <circle key={`${row}-${col}`} cx={30 + col * 62} cy={30 + row * 62} r="1.4" />
+          ))
+        )}
+      </g>
+
+      <path
+        id="trail-path"
+        d="M40 440 C 140 440, 110 300, 210 300 S 300 160, 320 140 S 420 90, 460 60"
+        fill="none"
+        stroke="#E8A33D"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray="10 9"
+        filter="url(#trail-glow)"
+        className="animate-trail-flow"
+        opacity="0.85"
+      />
+
+      {[
+        { cx: 40, cy: 440, delay: "0s" },
+        { cx: 210, cy: 300, delay: "0.6s" },
+        { cx: 320, cy: 140, delay: "1.2s" },
+        { cx: 460, cy: 60, delay: "1.8s" },
+      ].map((p, i) => (
+        <g key={i} style={{ transformBox: "fill-box", transformOrigin: "center" }}>
+          <circle
+            cx={p.cx}
+            cy={p.cy}
+            r="14"
+            fill="#E8A33D"
+            opacity="0.15"
+            className="animate-trail-pulse"
+            style={{ animationDelay: p.delay }}
+          />
+          <circle cx={p.cx} cy={p.cy} r="5.5" fill="#E8A33D" filter="url(#trail-glow)" />
+        </g>
+      ))}
+
+      <circle r="4" fill="#F4BE6C" filter="url(#trail-glow)">
+        <animateMotion dur="6s" repeatCount="indefinite" rotate="auto">
+          <mpath href="#trail-path" />
+        </animateMotion>
+      </circle>
+    </svg>
   );
 }

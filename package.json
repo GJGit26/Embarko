@@ -10,8 +10,6 @@
     "seed": "tsx scripts/seed-knowledge-base.ts"
   },
   "dependencies": {
-    "@splinetool/react-spline": "^2.2.6",
-    "@splinetool/runtime": "^1.9.28",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.4",
     "clsx": "^2.1.1",

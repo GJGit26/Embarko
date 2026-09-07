@@ -6,10 +6,7 @@ import type { Config } from "tailwindcss";
 // durations, percentages and phase numbers.
 const config: Config = {
   darkMode: "class",
-  content: [
-    "./app/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-  ],
+  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -58,6 +55,16 @@ const config: Config = {
       },
       transitionTimingFunction: {
         trail: "cubic-bezier(0.22, 1, 0.36, 1)",
+      },
+      keyframes: {
+        "trail-flow": {
+          to: { strokeDashoffset: "-38" },
+        },
+     
+      },
+      animation: {
+        "trail-flow": "trail-flow 1.4s linear infinite"
+       
       },
     },
   },

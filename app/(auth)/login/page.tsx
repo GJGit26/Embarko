@@ -28,8 +28,7 @@ function LoginForm() {
       setError(error.message);
       return;
     }
-    router.push(searchParams.get("next") || "/dashboard");
-    router.refresh();
+      window.location.href = searchParams.get("next") || "/dashboard";
   }
 
   async function handleGoogle() {

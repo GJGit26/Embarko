@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx scripts/seed-knowledge-base.ts"
+    "seed": "tsx scripts/seed-knowledge-base.ts",
+    "seed:career": "tsx scripts/seed-career-data.ts",
+    "test:engine": "tsx scripts/test-engine.ts",
+    "test:ai": "tsx scripts/test-ai.ts",
+    "test": "npm run test:engine && npm run test:ai"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.1",

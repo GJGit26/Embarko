@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth-shell";
+import { safeNext } from "@/lib/safe-redirect";
 
 function LoginForm() {
   const router = useRouter();
@@ -28,7 +29,7 @@ function LoginForm() {
       setError(error.message);
       return;
     }
-      window.location.href = searchParams.get("next") || "/dashboard";
+      window.location.href = safeNext(searchParams.get("next"));
   }
 
   async function handleGoogle() {
@@ -36,7 +37,7 @@ function LoginForm() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?next=${encodeURIComponent(safeNext(searchParams.get("next")))}`,
       },
     });
   }

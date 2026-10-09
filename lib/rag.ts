@@ -1,5 +1,6 @@
 import { embedQuery } from "@/lib/embeddings";
 import { RetrievedChunk, SurveyInput } from "@/lib/types";
+import type { RoleContext } from "@/lib/gemini";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -25,7 +26,7 @@ export function buildSurveyQuery(survey: SurveyInput): string {
   ].join(" ");
 }
 
-async function matchKnowledgeBase(
+export async function matchKnowledgeBase(
   supabase: SupabaseClient,
   embedding: number[],
   domain: string,
@@ -58,9 +59,18 @@ export interface RetrievalResult {
  */
 export async function retrieveRoadmapContext(
   supabase: SupabaseClient,
-  survey: SurveyInput
+  survey: SurveyInput,
+  roleContext?: RoleContext
 ): Promise<RetrievalResult> {
-  const query = buildSurveyQuery(survey);
+  // With a target role, the same embedding also carries the role and its most
+  // important unmet skills, so retrieval favours material for the actual gap.
+  // Without one the query is byte-for-byte what it was before.
+  const query = roleContext
+    ? `${buildSurveyQuery(survey)} Target role: ${roleContext.roleName}. Skills to build first: ${roleContext.gap
+        .slice(0, 6)
+        .map((g) => g.name)
+        .join(", ")}.`
+    : buildSurveyQuery(survey);
   const embedding = await embedQuery(query);
 
   const [roadmapFragments, courses, resources] = await Promise.all([
@@ -74,4 +84,37 @@ export async function retrieveRoadmapContext(
     roadmapFragments,
     candidateResources: [...courses, ...resources],
   };
+}
+
+export interface TopicContext {
+  query: string;
+  fragments: RetrievedChunk[];
+  candidateResources: RetrievedChunk[];
+}
+
+/**
+ * Retrieval for one topic the student is weak at (or about to be assessed on):
+ * the same knowledge base and match_knowledge_base RPC as the roadmap, queried
+ * with the topic, its skill and the target role instead of the survey.
+ */
+export async function retrieveTopicContext(
+  supabase: SupabaseClient,
+  args: { domain: string; topic: string; skillName?: string | null; roleName?: string | null; level?: string | null }
+): Promise<TopicContext> {
+  const query = [
+    `Learning material for ${args.topic}${args.skillName && args.skillName !== args.topic ? ` (${args.skillName})` : ""}.`,
+    args.roleName ? `The student is working toward becoming a ${args.roleName}.` : "",
+    args.level ? `Appropriate for a ${args.level.toLowerCase()} learner who is struggling with this topic.` : "",
+    "Recommend focused revision, practice exercises and a small project task.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const embedding = await embedQuery(query);
+  const [fragments, courses, resources] = await Promise.all([
+    matchKnowledgeBase(supabase, embedding, args.domain, "roadmap_fragment", 3),
+    matchKnowledgeBase(supabase, embedding, args.domain, "course", 6),
+    matchKnowledgeBase(supabase, embedding, args.domain, "resource", 4),
+  ]);
+  return { query, fragments, candidateResources: [...courses, ...resources] };
 }

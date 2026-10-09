@@ -81,6 +81,29 @@ Visit `http://localhost:3000`.
 - Update `NEXT_PUBLIC_SITE_URL` to your production URL, and add it as an
   additional Google OAuth redirect origin.
 
+## Adaptive career layer
+
+Embarko also guides students from technologies → roles → a target role → skill gap → projects → assessments → adaptive revision → job readiness. It is additive: with the migration not applied, the original survey/roadmap/dashboard flow works exactly as before.
+
+**Set up (after the steps above):**
+
+1. Run `supabase/adaptive.sql` in the Supabase SQL editor (safe to re-run; only adds tables and nullable columns).
+2. `npm run seed:career` — seeds the skill / role / project catalog (no AI or embedding calls). Edit `scripts/career-seed-data.ts` and re-run to change it; student progress is preserved.
+3. `npm test` — scoring-engine and AI-failure-path tests (no network or keys needed).
+
+**Where numbers come from (no LLM produces a score):**
+
+| Number | Calculation | Code |
+| --- | --- | --- |
+| Role match % | importance-weighted share of the role's skills the student has (implied skills count) | `lib/skills-engine.ts#scoreRoles` |
+| Skill proficiency | sum of evidence points; only a server-graded assessment can reach "Demonstrated" | `computeSkillState` |
+| Job readiness | 80% importance-weighted skill categories + 20% completed projects | `computeReadiness` |
+| Assessment score | weighted arithmetic over per-question credit; AI only grades short answers against fixed key points | `scoreAssessment` |
+
+**Trust model:** `skill_evidence`, assessments, answer keys and attempts are owner-*read-only* under RLS; they are written only by server routes that verify the session first and use the service role. Answer keys have no RLS policy, so they never reach the browser.
+
+**Known limits:** coding questions run in the student's browser (JavaScript only), so their result is self-reported and never creates verified evidence; debug questions ask the student to identify the root cause rather than submit a fix.
+
 ## How the RAG pipeline works
 
 1. `lib/rag.ts#buildSurveyQuery` turns the six survey answers into one

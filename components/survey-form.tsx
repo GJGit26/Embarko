@@ -28,7 +28,14 @@ const LOADING_MESSAGES = [
   "Charting your phases...",
 ];
 
-export function SurveyForm() {
+export interface SurveyPrefill {
+  roleSlug: string;
+  roleName: string;
+  knownSkills: string[];
+  interestDomain?: InterestDomain;
+}
+
+export function SurveyForm({ prefill }: { prefill?: SurveyPrefill }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -37,8 +44,8 @@ export function SurveyForm() {
 
   const [yearSemester, setYearSemester] = useState("");
   const [skillInput, setSkillInput] = useState("");
-  const [knownSkills, setKnownSkills] = useState<string[]>([]);
-  const [interestDomain, setInterestDomain] = useState<InterestDomain | "">("");
+  const [knownSkills, setKnownSkills] = useState<string[]>(prefill?.knownSkills ?? []);
+  const [interestDomain, setInterestDomain] = useState<InterestDomain | "">(prefill?.interestDomain ?? "");
   const [weeklyHours, setWeeklyHours] = useState(8);
   const [goal, setGoal] = useState<Goal | "">("");
   const [learningStyle, setLearningStyle] = useState<LearningStyle | "">("");
@@ -88,6 +95,7 @@ export function SurveyForm() {
           weeklyHours,
           goal,
           learningStyle,
+          ...(prefill ? { roleSlug: prefill.roleSlug } : {}),
         }),
       });
       const json = await res.json();
@@ -134,6 +142,12 @@ export function SurveyForm() {
       <p className="font-mono text-xs uppercase tracking-widest text-teal dark:text-teal-bright">
         Step {step + 1} of {TOTAL_STEPS}
       </p>
+      {prefill && (
+        <p className="mt-2 text-xs text-charcoal/55 dark:text-mist/50">
+          Building a roadmap toward <span className="font-medium">{prefill.roleName}</span>. We&apos;ve
+          pre-filled what we already know — change anything that&apos;s off.
+        </p>
+      )}
 
       {step === 0 && (
         <StepBlock title="Where are you in college?">

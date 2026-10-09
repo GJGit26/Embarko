@@ -8,12 +8,15 @@ export function StepItem({
   title,
   description,
   initialComplete,
+  hint,
 }: {
   roadmapId: string;
   stepId: string;
   title: string;
   description: string | null;
   initialComplete: boolean;
+  /** Optional adaptive note, e.g. "You scored well on this — skim it". */
+  hint?: string;
 }) {
   const [isComplete, setIsComplete] = useState(initialComplete);
   const [isPending, startTransition] = useTransition();
@@ -70,6 +73,9 @@ export function StepItem({
         </p>
         {description && (
           <p className="mt-0.5 text-xs text-charcoal/50 dark:text-mist/45">{description}</p>
+        )}
+        {hint && !isComplete && (
+          <p className="mt-1 font-mono text-[11px] text-teal dark:text-teal-bright">↯ {hint}</p>
         )}
       </div>
     </li>

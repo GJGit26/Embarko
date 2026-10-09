@@ -35,6 +35,12 @@ export function NavBar({ isAuthed }: { isAuthed: boolean }) {
                 Dashboard
               </Link>
               <Link
+                href="/career"
+                className="rounded border border-teal px-3 py-1 text-teal transition-colors hover:bg-teal hover:text-mist dark:border-teal-bright dark:text-teal-bright dark:hover:bg-teal-bright dark:hover:text-ink"
+              >
+                Career
+              </Link>
+              <Link
                 href="/survey"
                 className="hidden text-charcoal/70 transition-colors hover:text-charcoal dark:text-mist/70 dark:hover:text-mist sm:inline"
               >

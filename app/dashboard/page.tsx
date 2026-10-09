@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/nav-bar";
 import { RoadmapList } from "@/components/roadmap-list";
+import { DashboardSnapshot } from "@/components/career/dashboard-snapshot";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -44,14 +45,25 @@ export default async function DashboardPage() {
               {user?.user_metadata?.full_name ? `${user.user_metadata.full_name.split(" ")[0]}'s roadmaps` : "Your roadmaps"}
             </h1>
           </div>
-          <Link
-            href="/survey"
-            className="rounded bg-charcoal px-5 py-2.5 text-sm font-medium text-mist transition-colors hover:bg-teal dark:bg-amber dark:text-ink dark:hover:bg-amber-bright"
-          >
-            New roadmap
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/career"
+              className="rounded border border-teal px-5 py-2.5 text-sm font-medium text-teal transition-colors hover:bg-teal hover:text-mist dark:border-teal-bright dark:text-teal-bright dark:hover:bg-teal-bright dark:hover:text-ink"
+            >
+              Career path
+            </Link>
+            <Link
+              href="/survey"
+              className="rounded bg-charcoal px-5 py-2.5 text-sm font-medium text-mist transition-colors hover:bg-teal dark:bg-amber dark:text-ink dark:hover:bg-amber-bright"
+            >
+              New roadmap
+            </Link>
+          </div>
         </div>
 
+        {user && <DashboardSnapshot userId={user.id} />}
+
+        <h2 className="mb-2 mt-14 font-display text-xl tracking-tight">Your roadmaps</h2>
         <RoadmapList initialRoadmaps={roadmapsForList} />
       </div>
     </div>

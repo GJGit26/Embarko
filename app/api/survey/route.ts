@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildSurveyQuery, retrieveRoadmapContext } from "@/lib/rag";
-import { generateRoadmap } from "@/lib/gemini";
+import { generateRoadmap, RoleContext } from "@/lib/gemini";
+import { AiError } from "@/lib/ai-json";
+import { loadEvidence, loadRoles } from "@/lib/career-data";
+import { analyzeSkillGap, computeSkillStates } from "@/lib/skills-engine";
+import { Role } from "@/lib/career-types";
 import { SurveyInput } from "@/lib/types";
 
 // Embedding + generation can take a while — give this route headroom on
@@ -46,6 +50,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid survey payload" }, { status: 400 });
   }
 
+  // Optional: build the roadmap toward the student's chosen career role.
+  // Without roleSlug this route behaves exactly as it always has.
+  let role: Role | null = null;
+  let roleContext: RoleContext | undefined;
+  if (body.roleSlug !== undefined && body.roleSlug !== null) {
+    if (typeof body.roleSlug !== "string" || body.roleSlug.length > 80) {
+      return NextResponse.json({ error: "Invalid roleSlug" }, { status: 400 });
+    }
+    try {
+      const [roles, evidence] = await Promise.all([loadRoles(supabase), loadEvidence(supabase, user.id)]);
+      role = roles.find((r) => r.slug === body.roleSlug) ?? null;
+      if (!role) return NextResponse.json({ error: "Unknown role" }, { status: 404 });
+      const gap = analyzeSkillGap(role, computeSkillStates(evidence));
+      roleContext = {
+        roleName: role.name,
+        gap: gap.gaps.slice(0, 14).map((g) => ({
+          slug: g.skill.slug,
+          name: g.skill.name,
+          importance: g.importance,
+          proficiency: g.state.proficiency,
+        })),
+        demonstrated: gap.demonstrated.map((g) => g.skill.name),
+      };
+    } catch (err: any) {
+      return NextResponse.json({ error: `Could not load your target role: ${err.message}` }, { status: 500 });
+    }
+  }
+
   // 1. Persist the raw survey response.
   const rawQuery = buildSurveyQuery(survey);
   const { data: surveyRow, error: surveyError } = await supabase
@@ -74,11 +106,15 @@ export async function POST(req: NextRequest) {
     // 2. RAG retrieval against the shared knowledge base.
     const { roadmapFragments, candidateResources } = await retrieveRoadmapContext(
       supabase,
-      survey
+      survey,
+      roleContext
     );
 
     // 3. Generation, grounded in the retrieved chunks.
-    const generated = await generateRoadmap(survey, roadmapFragments, candidateResources);
+    const generated = await generateRoadmap(survey, roadmapFragments, candidateResources, roleContext);
+
+    // Slug -> skill id for tagging steps (empty when there is no target role).
+    const skillIdBySlug = new Map((role?.skills ?? []).map((rs) => [rs.skill.slug, rs.skill.id]));
 
     // 4. Persist roadmap -> phases -> steps -> phase_resources.
     const { data: roadmapRow, error: roadmapError } = await supabase
@@ -89,6 +125,7 @@ export async function POST(req: NextRequest) {
         title: generated.title,
         summary: generated.summary,
         domain: survey.interestDomain,
+        role_id: role?.id ?? null,
       })
       .select("id")
       .single();
@@ -124,6 +161,8 @@ export async function POST(req: NextRequest) {
             position: j + 1,
             title: step.title,
             description: step.description,
+            // First tagged skill only: one step -> at most one skill for evidence.
+            skill_id: skillIdBySlug.get(step.skill_slugs?.[0] ?? "") ?? null,
           }))
         );
         if (stepsError) throw new Error(stepsError.message);
@@ -149,6 +188,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ roadmapId: roadmapRow.id });
   } catch (err: any) {
+    if (err instanceof AiError) {
+      console.error(`[survey] AI failure (${err.kind}): ${err.message}`);
+      return NextResponse.json(
+        { error: err.userMessage },
+        { status: err.kind === "rate_limited" ? 429 : 502 }
+      );
+    }
     return NextResponse.json(
       { error: `Roadmap generation failed: ${err.message}` },
       { status: 500 }

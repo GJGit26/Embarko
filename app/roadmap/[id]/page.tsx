@@ -4,6 +4,10 @@ import { NavBar } from "@/components/nav-bar";
 import { StepItem } from "@/components/step-item";
 import { ProgressBar } from "@/components/progress-bar";
 import { ResourceCard } from "@/components/resource-card";
+import { AdaptivePanel } from "@/components/career/adaptive-panel";
+import { TakeAssessmentButton } from "@/components/career/take-assessment-button";
+import { loadPendingRecommendations } from "@/lib/career-data";
+import type { AdaptiveRecommendation } from "@/lib/career-types";
 
 export default async function RoadmapPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -34,6 +38,21 @@ export default async function RoadmapPage({ params }: { params: { id: string } }
     .eq("roadmap_id", params.id)
     .order("position");
 
+  // Adaptive layer. If supabase/adaptive.sql hasn't been applied this query
+  // fails; the page then renders exactly as it did before (no buttons, no panel).
+  let recs: AdaptiveRecommendation[] = [];
+  let adaptiveReady = true;
+  try {
+    recs = await loadPendingRecommendations(supabase, user.id, params.id);
+  } catch (err) {
+    // Don't hide this silently: a missing adaptive.sql / RLS problem shows up here.
+    console.error("[roadmap] adaptive recommendations failed to load:", err);
+    adaptiveReady = false;
+  }
+  const skipHint = new Map<string, string>();
+  for (const r of recs) if (r.kind === "skip") for (const id of r.target_step_ids) skipHint.set(id, `Strong result on ${r.topic} — skim this`);
+  const visibleRecs = recs.filter((r) => r.kind !== "skip" || r.target_step_ids.length > 0);
+
   return (
     <div className="min-h-screen">
       <NavBar isAuthed />
@@ -60,6 +79,8 @@ export default async function RoadmapPage({ params }: { params: { id: string } }
             <ProgressBar percent={progress?.percent_complete ?? 0} />
           </div>
         </div>
+
+        {adaptiveReady && <AdaptivePanel roadmapId={roadmap.id} initial={visibleRecs} />}
 
         <ol className="relative mt-14 space-y-14 border-l border-mist-line pl-8 dark:border-ink-line md:pl-10">
           {(phases ?? []).map((phase) => {
@@ -96,10 +117,17 @@ export default async function RoadmapPage({ params }: { params: { id: string } }
                         title={step.title}
                         description={step.description}
                         initialComplete={step.is_complete}
+                        hint={skipHint.get(step.id)}
                       />
                     ))}
                   </ul>
                 )}
+
+                {/* Always shown. If the career tables are missing, clicking surfaces the
+                    API error instead of the button vanishing. */}
+                <div className="mt-6">
+                  <TakeAssessmentButton roadmapId={roadmap.id} phaseId={phase.id} label="Take phase assessment" />
+                </div>
 
                 {resources.length > 0 && (
                   <div className="mt-6">
